@@ -100,6 +100,10 @@
   (is (hpqueue-empty (q-of)))
   (is (not (hpqueue-empty (q-of 123)))))
 
+(test hpqueue-count
+  (is (= 7 (hpqueue-count (q-of 1 2 3 4 5 6 7))))
+  (is (= 0 (hpqueue-count (q-of)))))
+
 (test clear-hpqueue
   (let ((q (q-of "a")))
     (is (hpqueue-empty (clear-hpqueue q)))))
