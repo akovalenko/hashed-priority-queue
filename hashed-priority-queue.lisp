@@ -284,6 +284,22 @@ values if the queue is empty."
 		  t))
 	(values))))
 
+(defun hpqueue-delete (element queue)
+  "Delete ELEMENT from QUEUE.
+Return (values priorty T) if it was present, NIL otherwise"
+  (let* ((array (hpqueue-array queue))
+	 (hash-table (hpqueue-%hash-table queue))
+	 (node (gethash element hash-table)))
+    (when node
+      (remhash element hash-table)
+      (if (= (node-pos node) (1- (length array)))
+	  (vector-pop array)
+	  (progn
+	    (setf (aref array (node-pos node))
+		  (vector-pop array))
+	    (%sift-down queue (node-pos node))))
+      (values (node-prio node) t))))
+
 (defun hpqueue-equal (q1 q2)
   "Return true iff q1 and q2 are both hpqueues, their tests and
 predicates are EQL, and they have the same elements (under their

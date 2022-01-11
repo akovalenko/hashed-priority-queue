@@ -104,6 +104,13 @@
   (is (= 7 (hpqueue-count (q-of 1 2 3 4 5 6 7))))
   (is (= 0 (hpqueue-count (q-of)))))
 
+(test hpqueue-delete
+  (let* ((q1 (q-of "a" "b" "c"))
+	 (q2 (q-of "a" "b")))
+    (hpqueue-delete "c" q1)
+    (hpqueue-delete "missing" q1)
+    (is (hpqueue-equal q1 q2))))
+
 (test clear-hpqueue
   (let ((q (q-of "a")))
     (is (hpqueue-empty (clear-hpqueue q)))))

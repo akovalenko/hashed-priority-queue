@@ -126,6 +126,11 @@ Return true if QUEUE is empty.
 
 Return element count in QUEUE.
 
+### `(HPQUEUE-DELETE element queue)`
+
+Delete element from QUEUE, return its old priority, with secondary
+return value indicating its presence.
+
 ### `(HPQUEUE-P queue)`
 
 Type predicate for HPQUEUE structure

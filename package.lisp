@@ -22,6 +22,7 @@
    #:hpqueue-front
    #:hpqueue-empty
    #:hpqueue-count
+   #:hpqueue-delete
    #:hpqueue-equal
 
    ;; conversion
