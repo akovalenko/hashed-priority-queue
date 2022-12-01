@@ -88,7 +88,17 @@
     (is (equal "bar" (hpqueue-pop q)))
     (is (equal "baz" (hpqueue-pop q)))
     (is (equal "foo" (hpqueue-pop q)))
-    (is (null (hpqueue-pop q)))))
+    (is (null (hpqueue-pop q))))
+  (let* ((r (loop repeat 1000
+		  collect (random 1000000)))
+	 (q (hash-table-hpqueue
+	     (alist-hash-table
+	      (loop for item in r
+		    collect (cons (list t) item))))))
+    (is (equalp (sort r #'<)
+		(loop for item = (nth-value 1 (hpqueue-pop q))
+		      while item
+		      collect item)))))
 
 (test hpqueue-front
   (is (equal '("a" 0 t)
