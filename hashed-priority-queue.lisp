@@ -75,18 +75,13 @@
 		  (aref hpqueue-array n-best))
 	 (setf pos n-best))))
 
-(defun %heapify-range (queue start end)
-  (loop for i from start below end
-	do (%sift-down queue i)))
-
 (defun %heapify (queue)
   (let* ((array (hpqueue-array queue))
 	 (length (length array)))
-    (loop
-      (let ((start (or (%parent (1- length))
-		       (return queue))))
-	(%heapify-range queue start (1+ (* 2 start)))
-	(setf length (1+ start))))))
+    (unless (zerop length)
+      (loop for i downfrom (%parent (1- length))
+	      to 0 do (%sift-down queue i)))
+    queue))
 
 (defun make-hpqueue (&key (test 'eql) (predicate '<))
   "Make a hashed priority queue, setting element hash table test to TEST
