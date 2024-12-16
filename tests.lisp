@@ -165,13 +165,14 @@
     (loop
       (multiple-value-bind (item cost present) (hpqueue-pop queue)
 	(unless present (return (values nil visited)))
+	(setf (gethash item visited) cost)
 	(when (funcall test item target)
 	  (return (values cost visited)))
-	(setf (gethash item visited) cost)
 	(loop for (neighbor . distance)
 		in (funcall get-neighbor-alist-fn item)
-	      do (hpqueue-push
-		  neighbor (+ cost distance) queue #'min))))))
+	      do (unless (gethash neighbor visited)
+		   (hpqueue-push
+		    neighbor (+ cost distance) queue #'min)))))))
 
 ;;; applying dijkstra-find-path to a data set taken from
 ;;; https://adventofcode.com/2021/day/15
