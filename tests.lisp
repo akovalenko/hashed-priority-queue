@@ -121,6 +121,13 @@
     (hpqueue-delete "missing" q1)
     (is (hpqueue-equal q1 q2))))
 
+(test hpqueue-delete-pos-smashing
+  (dotimes (i 50)
+    (let ((q (q-of :a :b :c)))
+      (hpqueue-delete :c q)
+      (setf (hpqueue-priority :b q) -12)
+      (is (eql 0 (cdr (assoc :a (hpqueue-alist q))))))))
+
 (test clear-hpqueue
   (let ((q (q-of "a")))
     (is (hpqueue-empty (clear-hpqueue q)))))
