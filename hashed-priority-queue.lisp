@@ -289,9 +289,11 @@ Return (values priorty T) if it was present, NIL otherwise"
       (remhash element hash-table)
       (if (= (node-pos node) (1- (length array)))
 	  (vector-pop array)
-	  (progn
-	    (setf (aref array (node-pos node))
-		  (vector-pop array))
+	  (let ((tail-node (vector-pop array)))
+	    (setf (node-pos tail-node)
+		  (node-pos node)
+		  (aref array (node-pos node))
+		  tail-node)
 	    (%sift-down queue (node-pos node))))
       (values (node-prio node) t))))
 
