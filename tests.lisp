@@ -157,7 +157,7 @@
   (is (hpqueue-equal
        (merge-hpqueue '+ (q-of 1 2 5) (q-of 15 38 1))
        (merge-hpqueue '+ (q-of 15 38 1) (q-of 1 2 5))))
-  
+
   (is (eql 4 (hpqueue-priority "c"
 			       (merge-hpqueue '*
 					      (q-of "a" "b" "c")
@@ -238,3 +238,121 @@
 		    (loop for (x y) in (list-neigbors cell dimensions)
 			  collect (cons (list x y) (cost-at x y)))))
 	     (dijkstra-find-path start #'neighbors target :test 'equal))))))
+
+
+;;; Running median
+
+;;; Problem: you have a stream of incoming numbers. For each new
+;;; number after the (M-1)th, calculate the median of last M numbers
+;;; received.
+;;;
+;;; Solution: keep a max-heap (left) and a min-heap (right),
+;;; maintaining that:
+;;;
+;;; - size difference between heaps is at most 1 (rebalance heaps when
+;;; the difference becomes larger)
+;;;
+;;; - max(left) <= min(right)
+;;;
+;;; The median is the root of the longest heap if their sizes are
+;;; different, and the average of the heap roots otherwise.
+;;;
+;;; Old elements are removed from the heaps as they fall out of the
+;;; running window. To achieve this, an identifier is attached to
+;;; elements, cycling from 0 to M-1 (mod M).
+
+(defun avg (n1 &rest ns)
+  (loop with length = (1+ (length ns))
+	for n in (list* n1 ns)
+	sum (/ n length)))
+
+(defstruct (rm (:constructor %make-rm))
+  left right
+  (size nil :type (mod #.array-dimension-limit))
+  (pred< nil :type function)
+  (pred> nil :type function)
+  (tie nil :type function)
+  (next-id nil :type (mod #.array-dimension-limit)))
+
+(defun fun (designator)
+  (etypecase designator
+    (symbol (symbol-function designator))
+    (function designator)))
+
+(defun make-rm (size &key (predicate #'<) (tie-breaker #'avg))
+  (setf predicate (fun predicate))
+  (setf tie-breaker (fun tie-breaker))
+  (flet ((pred< (a b)
+	   (funcall predicate a b))
+	 (pred> (a b)
+	   (funcall predicate b a)))
+    (%make-rm :size size
+	      :next-id 0
+	      :tie tie-breaker
+	      :pred< #'pred<
+	      :pred> #'pred>
+	      :left (make-hpqueue :predicate #'pred>)
+	      :right (make-hpqueue :predicate #'pred<))))
+
+(defun under-root-p (prio queue predicate)
+  (multiple-value-bind (elt top-prio present) (hpqueue-front queue)
+    (declare (ignore elt))
+    (and present (funcall predicate top-prio prio))))
+
+(defun rm-get-id (rm)
+  (with-accessors ((next-id rm-next-id)
+		   (size rm-size))
+      rm
+    (prog1 (mod next-id size)
+      (setf next-id (mod (1+ next-id) size)))))
+
+(defun push-rm (value rm)
+  (let ((left (rm-left rm))
+	(right (rm-right rm)))
+    (let ((id (rm-get-id rm)))
+      ;; remove stale element
+      (or (nth-value 1 (hpqueue-delete id left))
+	  (hpqueue-delete id right))
+
+      (flet ((best-queue ()
+	       (cond
+		 ((under-root-p value left (rm-pred> rm)) left)
+		 ((under-root-p value right (rm-pred< rm)) right)
+		 (t (if (< (hpqueue-count left)
+			   (hpqueue-count right))
+			left right)))))
+	(hpqueue-push id value (best-queue))
+	(loop while (< 1 (- (hpqueue-count left) (hpqueue-count right)))
+	      ;; while left is more than 1 bigger than right
+	      do (multiple-value-bind (elt prio) (hpqueue-pop left)
+		   (hpqueue-push elt prio right)))
+	(loop while (< 1 (- (hpqueue-count right) (hpqueue-count left)))
+	      do (multiple-value-bind (elt prio) (hpqueue-pop right)
+		   (hpqueue-push elt prio left)))))))
+
+(defun rm-median (rm)
+  (let* ((left (rm-left rm))
+	 (right (rm-right rm))
+	 (left-size (hpqueue-count left))
+	 (right-size (hpqueue-count right)))
+
+    (when (= 0 left-size right-size)
+      (return-from rm-median))
+
+    (if (= left-size right-size)
+	(funcall (rm-tie rm)
+		 (nth-value 1 (hpqueue-front left))
+		 (nth-value 1 (hpqueue-front right)))
+	(if (< left-size right-size)
+	    (nth-value 1 (hpqueue-front right))
+	    (nth-value 1 (hpqueue-front left))))))
+
+(test running-median
+  (let ((vector (make-array 1000))
+	(rm (make-rm 17)))
+    (map-into vector (lambda () (random 400000)))
+    (loop for item across vector
+	  do (push-rm item rm))
+    (let ((last-chunk (subseq vector (- 1000 17))))
+      (is (eql (elt (sort last-chunk #'<) 8)
+	       (rm-median rm))))))
