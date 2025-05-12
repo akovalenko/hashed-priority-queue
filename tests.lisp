@@ -16,6 +16,16 @@
 	  do (hpqueue-push elt prio q))
     q))
 
+(defun det-q-of (&rest args)
+  (let* ((test (if (stringp (first args)) 'equal 'eql))
+	 (q (make-hpqueue :test test))
+	 (alist (loop for index from 0
+		      for arg in args
+		      collect (cons index arg))))
+    (loop for (prio . elt) in alist
+	  do (hpqueue-push elt prio q))
+    q))
+
 (test sorting
   (let ((q (make-hpqueue :test 'equal)))
     (is (eql 120 (hpqueue-push "u" 120 q)))
@@ -122,11 +132,10 @@
     (is (hpqueue-equal q1 q2))))
 
 (test hpqueue-delete-pos-smashing
-  (dotimes (i 50)
-    (let ((q (q-of :a :b :c)))
-      (hpqueue-delete :c q)
-      (setf (hpqueue-priority :b q) -12)
-      (is (eql 0 (cdr (assoc :a (hpqueue-alist q))))))))
+  (let ((q (det-q-of :a :b :c)))
+    (hpqueue-delete :b q)
+    (setf (hpqueue-priority :c q) -1)
+    (is (eql 0 (cdr (assoc :a (hpqueue-alist q)))))))
 
 (test clear-hpqueue
   (let ((q (q-of "a")))
