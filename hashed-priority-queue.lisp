@@ -149,6 +149,17 @@ Returns T if valid, NIL if invalid."
             do (return-from %heap-valid-p nil)
           finally (return t))))
 
+(defun %vector-pop (vector)
+  "Like VECTOR-POP but sets the tail element to NIL before returning it.
+This helps with garbage collection by removing references to objects
+that are no longer part of the active vector."
+  (let ((position (1- (fill-pointer vector))))
+    (when (minusp position)
+      (error "Vector is empty: ~S" vector))
+    (prog1 (aref vector position)
+      (setf (aref vector position) nil
+            (fill-pointer vector) position))))
+
 (defun make-hpqueue (&key (test 'eql) (predicate '<))
   "Make a hashed priority queue, setting element hash table test to TEST
 and priority comparison predicate to PREDICATE. Default predicate
@@ -323,7 +334,7 @@ values if the queue is empty."
     (when (zerop (length vector))
       (return-from hpqueue-pop (values)))
     (let* ((head (aref vector 0))
-	   (tail (vector-pop vector)))
+	   (tail (%vector-pop vector)))
       (multiple-value-prog1
 	  (values (node-element head) (node-prio head) t)
 	(remhash (node-element head) (hpqueue-%hash-table queue))
@@ -354,8 +365,8 @@ Return (values priorty T) if it was present, NIL otherwise"
     (when node
       (remhash element hash-table)
       (if (= (node-pos node) (1- (length array)))
-	  (vector-pop array)
-	  (let ((tail-node (vector-pop array)))
+	  (%vector-pop array)
+	  (let ((tail-node (%vector-pop array)))
 	    (setf (node-pos tail-node)
 		  (node-pos node)
 		  (aref array (node-pos node))
