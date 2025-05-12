@@ -97,34 +97,37 @@
 	      to 0 do (%sift-down queue i)))
     queue))
 
+(declaim (inline %fun))
+(defun %fun (arg)
+  "Convert function designator ARG into function"
+  (etypecase arg
+    (symbol (symbol-function arg))
+    (function arg)))
+
 (defun %alist-hpqueue (alist &key (test 'eql) (predicate '<))
   "Make a hashed priority queue from an ALIST where each pair is (element . priority).
 Elements are added to the array in the exact order specified in the alist.
 TEST specifies the hash table test for elements.
 PREDICATE specifies the priority comparison function.
 Returns a heapified queue."
-  (flet ((fun (arg)
-           (etypecase arg
-             (symbol (symbol-function arg))
-             (function arg))))
-    (let* ((func-test (fun test))
-           (func-predicate (fun predicate))
-           (size (length alist))
-           (hash-table (make-hash-table :test func-test :size size))
-           (array (make-array size :adjustable t :fill-pointer 0))
-           (queue (%make-hpqueue :predicate func-predicate
-                                 :array array
-                                 :%hash-table hash-table)))
-      ;; Add elements to array in the exact order specified in alist
-      (loop for (element . priority) in alist
-            for pos from 0
-            do (let ((node (make-node :pos pos
-                                      :prio priority
-                                      :element element)))
-                 (vector-push node array)
-                 (setf (gethash element hash-table) node)))
-      ;; Apply heapify to establish the heap property
-      (%heapify queue))))
+  (let* ((func-test (%fun test))
+         (func-predicate (%fun predicate))
+         (size (length alist))
+         (hash-table (make-hash-table :test func-test :size size))
+         (array (make-array size :adjustable t :fill-pointer 0))
+         (queue (%make-hpqueue :predicate func-predicate
+                               :array array
+                               :%hash-table hash-table)))
+    ;; Add elements to array in the exact order specified in alist
+    (loop for (element . priority) in alist
+          for pos from 0
+          do (let ((node (make-node :pos pos
+                                    :prio priority
+                                    :element element)))
+               (vector-push node array)
+               (setf (gethash element hash-table) node)))
+    ;; Apply heapify to establish the heap property
+    (%heapify queue)))
 
 (defun %heap-valid-p (queue)
   "Check if QUEUE satisfies the heap property according to its predicate.
@@ -164,12 +167,8 @@ that are no longer part of the active vector."
   "Make a hashed priority queue, setting element hash table test to TEST
 and priority comparison predicate to PREDICATE. Default predicate
 value of '< gives you a min-heap."
-  (flet ((fun (arg)
-	   (etypecase arg
-	     (symbol (symbol-function arg))
-	     (function arg))))
-    (%make-hpqueue :%hash-table (make-hash-table :test (fun test))
-		   :predicate (fun predicate))))
+  (%make-hpqueue :%hash-table (make-hash-table :test (%fun test))
+		 :predicate (%fun predicate)))
 
 (defun copy-hpqueue (queue)
   "Make a shallow copy of a hashed priority queue, duplicating its
