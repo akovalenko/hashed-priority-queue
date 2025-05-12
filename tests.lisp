@@ -110,6 +110,9 @@
 		      while item
 		      collect item)))))
 
+(test hash-table-hpqueue-singular
+  (hash-table-hpqueue (alist-hash-table '(("foo" . 200)) :test 'equal)))
+
 (test hpqueue-front
   (is (equal '("a" 0 t)
 	     (multiple-value-list
@@ -136,6 +139,13 @@
     (hpqueue-delete :b q)
     (setf (hpqueue-priority :c q) -1)
     (is (eql 0 (cdr (assoc :a (hpqueue-alist q)))))))
+
+(test hpqueue-delete-sift-up
+  (let ((q (hashed-priority-queue::%alist-hpqueue
+	    (loop for i in '(10 300 200 310 320 205)
+		  collect (cons i i)))))
+    (hpqueue-delete 310 q)
+    (is (hashed-priority-queue::%heap-valid-p q))))
 
 (test clear-hpqueue
   (let ((q (q-of "a")))
