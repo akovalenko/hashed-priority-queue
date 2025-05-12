@@ -332,14 +332,18 @@ values if the queue is empty."
   (let ((vector (hpqueue-array queue)))
     (when (zerop (length vector))
       (return-from hpqueue-pop (values)))
-    (let* ((head (aref vector 0))
-	   (tail (%vector-pop vector)))
+    (let* ((head (aref vector 0)))
+      (remhash (node-element head) (hpqueue-%hash-table queue))
       (multiple-value-prog1
 	  (values (node-element head) (node-prio head) t)
-	(remhash (node-element head) (hpqueue-%hash-table queue))
-	(setf (node-pos tail) 0
-	      (aref vector 0) tail)
-	(%sift-down queue 0)))))
+	(if (= 1 (length vector))
+            ;; If this is the only element, just pop it
+            (%vector-pop vector)
+            ;; Otherwise replace it with the last element and sift down
+            (let ((tail (%vector-pop vector)))
+	      (setf (node-pos tail) 0
+                    (aref vector 0) tail)
+	      (%sift-down queue 0)))))))
 
 (defun hpqueue-front (queue)
   "Peek the top element from a hashed priority QUEUE. Predicate '< (the
