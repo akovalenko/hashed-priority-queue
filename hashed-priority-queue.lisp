@@ -75,13 +75,79 @@
 		  (aref hpqueue-array n-best))
 	 (setf pos n-best))))
 
+(defun %sift (queue pos)
+  "Sift the node at position POS either up or down as needed to maintain the heap property."
+  (let* ((array (hpqueue-array queue))
+         (predicate (hpqueue-predicate queue))
+         (parent (%parent pos)))
+    (if (and parent
+             (funcall predicate
+                      (node-prio (aref array pos))
+                      (node-prio (aref array parent))))
+        ;; If the node violates heap property with parent, sift up
+        (%sift-up queue pos)
+        ;; Otherwise, sift down
+        (%sift-down queue pos))))
+
 (defun %heapify (queue)
   (let* ((array (hpqueue-array queue))
 	 (length (length array)))
-    (unless (zerop length)
+    (unless (<= length 1)
       (loop for i downfrom (%parent (1- length))
 	      to 0 do (%sift-down queue i)))
     queue))
+
+(defun %alist-hpqueue (alist &key (test 'eql) (predicate '<))
+  "Make a hashed priority queue from an ALIST where each pair is (element . priority).
+Elements are added to the array in the exact order specified in the alist.
+TEST specifies the hash table test for elements.
+PREDICATE specifies the priority comparison function.
+Returns a heapified queue."
+  (flet ((fun (arg)
+           (etypecase arg
+             (symbol (symbol-function arg))
+             (function arg))))
+    (let* ((func-test (fun test))
+           (func-predicate (fun predicate))
+           (size (length alist))
+           (hash-table (make-hash-table :test func-test :size size))
+           (array (make-array size :adjustable t :fill-pointer 0))
+           (queue (%make-hpqueue :predicate func-predicate
+                                 :array array
+                                 :%hash-table hash-table)))
+      ;; Add elements to array in the exact order specified in alist
+      (loop for (element . priority) in alist
+            for pos from 0
+            do (let ((node (make-node :pos pos
+                                      :prio priority
+                                      :element element)))
+                 (vector-push node array)
+                 (setf (gethash element hash-table) node)))
+      ;; Apply heapify to establish the heap property
+      (%heapify queue))))
+
+(defun %heap-valid-p (queue)
+  "Check if QUEUE satisfies the heap property according to its predicate.
+Returns T if valid, NIL if invalid."
+  (let ((array (hpqueue-array queue))
+        (predicate (hpqueue-predicate queue))
+        (length (length (hpqueue-array queue))))
+    (loop for i from 0 below length
+          for left-child = (1+ (* 2 i))
+          for right-child = (1+ left-child)
+          ;; Check left child if it exists
+          when (and (< left-child length)
+                    (funcall predicate
+                             (node-prio (aref array left-child))
+                             (node-prio (aref array i))))
+            do (return-from %heap-valid-p nil)
+               ;; Check right child if it exists
+          when (and (< right-child length)
+                    (funcall predicate
+                             (node-prio (aref array right-child))
+                             (node-prio (aref array i))))
+            do (return-from %heap-valid-p nil)
+          finally (return t))))
 
 (defun make-hpqueue (&key (test 'eql) (predicate '<))
   "Make a hashed priority queue, setting element hash table test to TEST
@@ -294,7 +360,7 @@ Return (values priorty T) if it was present, NIL otherwise"
 		  (node-pos node)
 		  (aref array (node-pos node))
 		  tail-node)
-	    (%sift-down queue (node-pos node))))
+	    (%sift queue (node-pos node))))
       (values (node-prio node) t))))
 
 (defun hpqueue-equal (q1 q2)
