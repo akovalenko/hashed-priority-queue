@@ -375,3 +375,23 @@
     (let ((last-chunk (subseq vector (- 1000 17))))
       (is (eql (elt (sort last-chunk #'<) 8)
 	       (rm-median rm))))))
+
+(test hpqueue-p-predicate
+  (is-true (hpqueue-p (make-hpqueue)))
+  (is-false (hpqueue-p 'not-a-queue))
+  (is-false (hpqueue-p nil))
+  (is-false (hpqueue-p (make-hash-table))))
+
+(test hpqueue-pushnew
+  (let ((q (make-hpqueue)))
+    (is-true (hpqueue-pushnew :element 10 q))
+    (is-false (hpqueue-pushnew :element 5 q))
+    (is (= 10 (hpqueue-priority :element q)))
+    
+    (is-true (hpqueue-pushnew :another 20 q))
+    (is (= 2 (hpqueue-count q)))
+    
+    (multiple-value-bind (elt prio present) (hpqueue-pop q)
+      (is (eq :element elt))
+      (is (= 10 prio))
+      (is-true present))))
